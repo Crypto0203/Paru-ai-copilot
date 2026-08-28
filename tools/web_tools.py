@@ -37,8 +37,8 @@ _last_open_url = ""
 
 def open_url_windows(url: str) -> bool:
     """
-    Guarantees the URL opens in the FOREGROUND on the user's screen.
-    Uses native Windows Shell (os.startfile) -> Chrome direct -> ShellExecute.
+    Guarantees the URL opens in a fresh FOREGROUND window on the user's screen.
+    Uses verified Chrome absolute binary path with --new-window flag.
     """
     global _last_open_time, _last_open_url
     import time
@@ -48,31 +48,19 @@ def open_url_windows(url: str) -> bool:
     _last_open_time = now
     _last_open_url = url
 
-    # 1. Native Windows Shell association (opens default browser immediately in front)
-    try:
-        os.startfile(url)
-        time.sleep(0.3)
-        try:
-            from tools.system_tools import bring_window_to_front
-            bring_window_to_front("Chrome")
-            bring_window_to_front("YouTube")
-        except Exception:
-            pass
-        return True
-    except Exception:
-        pass
-
-    # 2. Chrome direct execution
+    # 1. Chrome direct execution with --new-window (Guarantees visible pop-up window)
     chrome_paths = [
         r"C:\Program Files\Google\Chrome\Application\chrome.exe",
         r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
-        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe")
+        os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
+        r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+        r"C:\Program Files\Microsoft\Edge\Application\msedge.exe"
     ]
     for cp in chrome_paths:
         if os.path.exists(cp):
             try:
-                subprocess.Popen([cp, url])
-                time.sleep(0.3)
+                subprocess.Popen([cp, "--new-window", url])
+                time.sleep(0.4)
                 try:
                     from tools.system_tools import bring_window_to_front
                     bring_window_to_front("Chrome")
@@ -83,7 +71,13 @@ def open_url_windows(url: str) -> bool:
             except Exception:
                 pass
 
-    # 3. Windows Start command fallback
+    # 2. Native Windows start fallback
+    try:
+        os.startfile(url)
+        return True
+    except Exception:
+        pass
+
     try:
         subprocess.Popen(f'start "" "{url}"', shell=True)
         return True
