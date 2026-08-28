@@ -1,18 +1,14 @@
 {
-  "version": 2,
+  "outputDirectory": "ui",
   "cleanUrls": true,
   "rewrites": [
     {
       "source": "/",
-      "destination": "/ui/index.html"
+      "destination": "/index.html"
     },
     {
       "source": "/remote",
-      "destination": "/ui/remote.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/ui/$1"
+      "destination": "/remote.html"
     }
   ]
 }
