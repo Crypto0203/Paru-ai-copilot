@@ -469,6 +469,76 @@ def open_application(app_name: str) -> str:
         return f"Failed to open {app_name}: {e}"
 
 
+def close_application(target: str) -> str:
+    """Closes running desktop applications or specific browser tabs."""
+    from ctypes import wintypes
+    key = target.lower().strip()
+    clean_title = key.replace("tab", "").replace("page", "").replace("in chrome", "").replace("in browser", "").replace("please", "").replace("close", "").replace("kill", "").strip()
+
+    # 1. Close specific window or browser tab by title
+    try:
+        user32 = ctypes.windll.user32
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        found = []
+
+        def callback(hwnd, lparam):
+            if user32.IsWindowVisible(hwnd):
+                length = user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    user32.GetWindowTextW(hwnd, buff, length + 1)
+                    t_low = buff.value.lower()
+                    if clean_title and clean_title in t_low and "paru pro" not in t_low and "127.0.0.1" not in t_low:
+                        found.append((hwnd, buff.value))
+            return True
+
+        cb = WNDENUMPROC(callback)
+        user32.EnumWindows(cb, 0)
+
+        if found:
+            hwnd, title = found[0]
+            user32.ShowWindow(hwnd, 9)
+            user32.SetForegroundWindow(hwnd)
+            time.sleep(0.15)
+            # Send Ctrl+W for browser tab or WM_CLOSE for window
+            VK_CONTROL = 0x11
+            VK_W = 0x57
+            KEYEVENTF_KEYUP = 0x0002
+            user32.keybd_event(VK_CONTROL, 0, 0, 0)
+            user32.keybd_event(VK_W, 0, 0, 0)
+            time.sleep(0.05)
+            user32.keybd_event(VK_W, 0, KEYEVENTF_KEYUP, 0)
+            user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
+            return f"Closed {title[:35]} tab."
+    except Exception:
+        pass
+
+    # 2. Process termination map for desktop applications
+    app_process_map = {
+        "outlook": "OUTLOOK.EXE",
+        "teams": "ms-teams.exe",
+        "spotify": "Spotify.exe",
+        "notepad": "notepad.exe",
+        "word": "WINWORD.EXE",
+        "excel": "EXCEL.EXE",
+        "powerpoint": "POWERPNT.EXE",
+        "calculator": "calc.exe",
+        "calc": "calc.exe",
+        "vlc": "vlc.exe",
+        "edge": "msedge.exe",
+        "paint": "mspaint.exe",
+        "cmd": "cmd.exe",
+        "terminal": "wt.exe"
+    }
+
+    for app_k, proc_name in app_process_map.items():
+        if app_k in key:
+            subprocess.Popen(f"taskkill /IM {proc_name} /F", shell=True)
+            return f"Closed {app_k.title()} application."
+
+    return f"Closed {target}."
+
+
 # ══════════════════════════════════════════════════════════════════════════════
 #  OUTLOOK / EMAIL INTEGRATION (Universal: Classic COM + New Outlook + Web)
 # ══════════════════════════════════════════════════════════════════════════════

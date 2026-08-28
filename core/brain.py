@@ -20,7 +20,7 @@ from tools.system_tools import (
     get_system_status, set_volume, adjust_volume, get_volume, mute_volume,
     set_brightness, adjust_brightness, lock_workstation,
     shutdown_pc, restart_pc, cancel_shutdown, sleep_pc,
-    open_application, open_folder, get_wifi_info, run_shell_command,
+    open_application, close_application, open_folder, get_wifi_info, run_shell_command,
     read_latest_emails
 )
 from tools.media_tools import take_screenshot, media_control, stop_all_audio
@@ -43,6 +43,7 @@ TOOL_FUNCTION_MAP = {
     "cancel_shutdown": cancel_shutdown,
     "sleep_pc": sleep_pc,
     "open_application": open_application,
+    "close_application": close_application,
     "open_folder": open_folder,
     "get_wifi_info": get_wifi_info,
     "run_shell_command": run_shell_command,
@@ -59,7 +60,7 @@ AVAILABLE_TOOLS = [
     get_system_status, set_volume, adjust_volume, mute_volume,
     set_brightness, adjust_brightness,
     lock_workstation, shutdown_pc, restart_pc, sleep_pc,
-    open_application, open_folder, get_wifi_info, run_shell_command,
+    open_application, close_application, open_folder, get_wifi_info, run_shell_command,
     read_latest_emails, take_screenshot, media_control, stop_all_audio
 ]
 
@@ -410,6 +411,14 @@ def fast_intent_router(query: str, current_lang: str = "en"):
             return {"text": f"Opening {url}.", "tool_called": [{"name": "open_website", "args": {"url": url}, "result": res}], "status": "success"}
         # Still try generic start
         return {"text": f"Trying to open {target}.", "tool_called": [{"name": "open_application", "args": {"app_name": target}, "result": res}], "status": "success"}
+
+    # ── "CLOSE X" / "CLOSE TAB" / "CLOSE APP" ROUTER ────────────────────────
+    close_match = re.match(r'(?:close|kill|exit|stop|terminate|band karo)\s+(.+)', q)
+    if close_match:
+        target = close_match.group(1).strip()
+        res = close_application(target)
+        msg = f"{target.title()} మూసివేశాను." if current_lang == "te" else f"Closed {target}."
+        return {"text": msg, "tool_called": [{"name": "close_application", "args": {"target": target}, "result": res}], "status": "success"}
 
     return None
 
