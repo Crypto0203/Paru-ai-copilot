@@ -88,7 +88,13 @@ def fast_intent_router(query: str, current_lang: str = "en"):
             "set_language": "en", "tool_called": None, "status": "success"
         }
 
-    # ── VOLUME CONTROL (50+ fuzzy patterns) ─────────────────────────────────
+    # ── VOLUME CONTROL (Per-App & System Master) ────────────────────────────
+    app_vol_match = None
+    for app_name in ["chrome", "browser", "spotify", "vlc", "edge", "discord", "firefox"]:
+        if app_name in q:
+            app_vol_match = "chrome" if app_name == "browser" else app_name
+            break
+
     # Decrease
     vol_down_keys = [
         "decrease volume", "decrease the volume", "decrease the voice",
@@ -106,6 +112,11 @@ def fast_intent_router(query: str, current_lang: str = "en"):
         "kam karo volume", "dheere karo", "aawaz kam",
     ]
     if any(k in q for k in vol_down_keys):
+        from tools.system_tools import adjust_app_volume
+        if app_vol_match:
+            res = adjust_app_volume(app_vol_match, -25)
+            msg = f"{app_vol_match.title()} volume decreased. {res}"
+            return {"text": msg, "tool_called": [{"name": "adjust_app_volume", "args": {"app_name": app_vol_match, "delta": -25}, "result": res}], "status": "success"}
         res = adjust_volume(-25)
         msg = "వాల్యూమ్ తగ్గించాను సురేష్ గారు." if current_lang == "te" else f"Volume decreased. {res}"
         return {"text": msg, "tool_called": [{"name": "adjust_volume", "args": {"delta": -25}, "result": res}], "status": "success"}
@@ -123,6 +134,11 @@ def fast_intent_router(query: str, current_lang: str = "en"):
         "zyada karo", "tez karo", "awaz badha", "aawaz badha",
     ]
     if any(k in q for k in vol_up_keys):
+        from tools.system_tools import adjust_app_volume
+        if app_vol_match:
+            res = adjust_app_volume(app_vol_match, 25)
+            msg = f"{app_vol_match.title()} volume increased. {res}"
+            return {"text": msg, "tool_called": [{"name": "adjust_app_volume", "args": {"app_name": app_vol_match, "delta": 25}, "result": res}], "status": "success"}
         res = adjust_volume(25)
         msg = "వాల్యూమ్ పెంచాను సురేష్ గారు." if current_lang == "te" else f"Volume increased. {res}"
         return {"text": msg, "tool_called": [{"name": "adjust_volume", "args": {"delta": 25}, "result": res}], "status": "success"}
@@ -133,6 +149,11 @@ def fast_intent_router(query: str, current_lang: str = "en"):
         vol_num = re.search(r'volume\s+(\d{1,3})', q)
     if vol_num:
         lvl = int(vol_num.group(1))
+        from tools.system_tools import set_app_volume
+        if app_vol_match:
+            res = set_app_volume(app_vol_match, lvl)
+            msg = f"{app_vol_match.title()} volume set to {lvl}%."
+            return {"text": msg, "tool_called": [{"name": "set_app_volume", "args": {"app_name": app_vol_match, "level": lvl}, "result": res}], "status": "success"}
         res = set_volume(lvl)
         msg = f"వాల్యూమ్ {lvl}%కి సెట్ చేశాను." if current_lang == "te" else f"Volume set to {lvl}%. {res}"
         return {"text": msg, "tool_called": [{"name": "set_volume", "args": {"level": lvl}, "result": res}], "status": "success"}
@@ -223,11 +244,11 @@ def fast_intent_router(query: str, current_lang: str = "en"):
         msg = "PARU డాష్‌బోర్డ్ మీ స్క్రీన్‌పై ఓపెన్ చేశాను." if current_lang == "te" else "I've brought the PARU Dashboard right to the front of your screen!"
         return {"text": msg, "tool_called": [{"name": "show_paru_window", "args": {}, "result": res}], "status": "success"}
 
-    # ── YouTube / Music ─────────────────────────────────────────────────────
+    # ── YouTube / Music (Exact Dynamic Title Extraction) ────────────────────
     yt_triggers = (
         ("youtube" in q)
-        or ("song" in q or "songs" in q or "music" in q or "video" in q or "trending" in q)
-        or any(k in q for k in ["suna do", "sunao", "lagao", "play cheyi", "patalu", "gana"])
+        or ("song" in q or "songs" in q or "music" in q or "video" in q or "track" in q)
+        or any(k in q for k in ["suna do", "sunao", "lagao", "play cheyi", "patalu", "gana", "bajao"])
     )
     if yt_triggers and not any(k in q for k in ["facebook", "chrome", "google", "screenshot", "battery", "volume", "voice", "sound", "lock", "brightness", "shutdown", "restart", "outlook", "spotify", "teams"]):
         search_term = q
@@ -242,14 +263,17 @@ def fast_intent_router(query: str, current_lang: str = "en"):
             "play on youtube", "play in youtube", "can you open youtube",
             "open youtube", "youtube open", "play on", "play",
             "suna do", "sunao", "lagao", "play cheyi", "patalu pettu", "pettu",
-            "please", "can you", "could you"
+            "please", "can you", "could you", "for me"
         ]
         for prefix in sorted(filler_prefixes, key=len, reverse=True):
             search_term = re.sub(rf'\b{re.escape(prefix)}\b', '', search_term, flags=re.IGNORECASE).strip()
         
         search_term = search_term.replace("on youtube", "").replace("in youtube", "").replace("youtube", "").replace("for me", "").replace(",", "").strip()
-        if not search_term or len(search_term) < 2 or search_term.lower() in ["can you", "please", "the", "a", "songs", "song", "music", "trending", "trending song", "trending songs", "he", "hey"]:
-            search_term = "trending songs"
+        
+        # If user did NOT specify any artist/title and just said "play songs" or "play music"
+        if not search_term or len(search_term) < 2 or search_term.lower() in ["songs", "song", "music", "trending", "trending song", "trending songs", "video", "videos"]:
+            search_term = "latest popular hit songs"
+        
         yt_res = play_youtube(search_term)
         resp_msg = f"యూట్యూబ్‌లో '{search_term}' ప్లే చేస్తున్నాను." if current_lang == "te" else f"Playing '{search_term}' on YouTube."
         return {"text": resp_msg, "tool_called": [{"name": "play_youtube", "args": {"query": search_term}, "result": yt_res}], "status": "success"}

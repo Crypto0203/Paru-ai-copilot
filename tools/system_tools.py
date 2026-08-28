@@ -89,6 +89,56 @@ def adjust_volume(delta: int = -20) -> str:
         return f"Failed to adjust volume: {e}"
 
 
+def adjust_app_volume(app_name: str, delta: int = -20) -> str:
+    """Adjusts volume for a specific running application (e.g. Chrome, Spotify, Edge, VLC)."""
+    _init_com()
+    if not PYCAW_AVAILABLE:
+        return adjust_volume(delta)
+    try:
+        sessions = AudioUtilities.GetAllSessions()
+        target = app_name.lower().replace(".exe", "").strip()
+        matched = False
+        res_msg = []
+        for session in sessions:
+            if session.Process:
+                pname = session.Process.name().lower()
+                if target in pname:
+                    vol_ctrl = session.SimpleAudioVolume
+                    curr = round(vol_ctrl.GetMasterVolume() * 100)
+                    new_v = max(0, min(100, curr + delta))
+                    vol_ctrl.SetMasterVolume(new_v / 100.0, None)
+                    matched = True
+                    display_name = session.Process.name().replace(".exe", "").title()
+                    res_msg.append(f"{display_name} volume adjusted to {new_v}%")
+        if matched:
+            return "; ".join(res_msg)
+        # Fallback to system volume if app is not actively generating audio
+        return adjust_volume(delta)
+    except Exception as e:
+        return adjust_volume(delta)
+
+
+def set_app_volume(app_name: str, level: int) -> str:
+    """Sets exact volume level (0-100) for a specific running application."""
+    _init_com()
+    level = max(0, min(100, int(level)))
+    if not PYCAW_AVAILABLE:
+        return set_volume(level)
+    try:
+        sessions = AudioUtilities.GetAllSessions()
+        target = app_name.lower().replace(".exe", "").strip()
+        matched = False
+        for session in sessions:
+            if session.Process and target in session.Process.name().lower():
+                session.SimpleAudioVolume.SetMasterVolume(level / 100.0, None)
+                matched = True
+        if matched:
+            return f"{app_name.title()} volume set to {level}%"
+        return set_volume(level)
+    except Exception:
+        return set_volume(level)
+
+
 def get_volume() -> str:
     """Gets current master system volume level."""
     _init_com()
@@ -293,7 +343,10 @@ APP_REGISTRY = {
 
 
 def bring_window_to_front(keyword: str) -> bool:
-    """Finds any running window matching keyword and brings it to active front focus."""
+    """
+    Finds any running window matching keyword and forces it into the active foreground.
+    Uses Win32 AllowSetForegroundWindow + ShowWindow(RESTORE) + Alt-key release trick.
+    """
     try:
         user32 = ctypes.windll.user32
         WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM)
@@ -312,7 +365,17 @@ def bring_window_to_front(keyword: str) -> bool:
         cb = WNDENUMPROC(callback)
         user32.EnumWindows(cb, 0)
         for hwnd in found:
+            # Grant foreground permission
+            user32.AllowSetForegroundWindow(-1)
+            # Restore window if minimized
             user32.ShowWindow(hwnd, 9)  # SW_RESTORE = 9
+            # Alt-key trick to bypass Windows foreground lock
+            VK_MENU = 0x12
+            KEYEVENTF_EXTENDEDKEY = 0x0001
+            KEYEVENTF_KEYUP = 0x0002
+            user32.keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY, 0)
+            user32.keybd_event(VK_MENU, 0, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP, 0)
+            user32.BringWindowToTop(hwnd)
             user32.SetForegroundWindow(hwnd)
             user32.SwitchToThisWindow(hwnd, True)
             return True
@@ -323,7 +386,6 @@ def bring_window_to_front(keyword: str) -> bool:
 
 def show_paru_window() -> str:
     """Opens or brings the PARU Holographic Desktop Dashboard right in front of the user."""
-    # Check if already open and bring to front
     if bring_window_to_front("PARU PRO") or bring_window_to_front("PARU AI") or bring_window_to_front("127.0.0.1:8765"):
         return "Brought PARU Dashboard to the front."
 
@@ -337,12 +399,16 @@ def show_paru_window() -> str:
         if os.path.exists(cp):
             try:
                 subprocess.Popen([cp, f"--app={url}", "--window-size=1280,820"])
+                time.sleep(0.4)
+                bring_window_to_front("PARU")
                 return "Launched PARU Dashboard in dedicated desktop window."
             except Exception:
                 pass
 
     try:
-        subprocess.Popen(f'start "" "{url}"', shell=True)
+        os.startfile(url)
+        time.sleep(0.4)
+        bring_window_to_front("PARU")
         return "Opened PARU Dashboard in browser."
     except Exception as e:
         return f"Failed to open dashboard: {e}"
@@ -363,7 +429,7 @@ def open_application(app_name: str) -> str:
                     final_cmd = cmd if cmd.startswith("start ") or cmd.startswith("powershell") else f'start "" {cmd}'
                     subprocess.Popen(final_cmd, shell=True)
                     launched.append(a.title())
-                    time.sleep(0.2)
+                    time.sleep(0.3)
                     bring_window_to_front(a)
                     break
                 except Exception:
@@ -385,7 +451,7 @@ def open_application(app_name: str) -> str:
             try:
                 final_cmd = cmd if cmd.startswith("start ") or cmd.startswith("powershell") else f'start "" {cmd}'
                 subprocess.Popen(final_cmd, shell=True)
-                time.sleep(0.3)
+                time.sleep(0.4)
                 bring_window_to_front(app_name)
                 return f"Launched {app_name.title()} successfully in front."
             except Exception:
@@ -395,7 +461,7 @@ def open_application(app_name: str) -> str:
     # Generic fallback
     try:
         subprocess.Popen(f'start "" "{key}"', shell=True)
-        time.sleep(0.3)
+        time.sleep(0.4)
         bring_window_to_front(key)
         return f"Launched {app_name}."
     except Exception as e:
@@ -403,21 +469,24 @@ def open_application(app_name: str) -> str:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-#  OUTLOOK / EMAIL INTEGRATION (win32com)
+#  OUTLOOK / EMAIL INTEGRATION (Universal: Classic COM + New Outlook + Web)
 # ══════════════════════════════════════════════════════════════════════════════
 
 def read_latest_emails(count: int = 1) -> str:
-    """Reads latest unread or received emails from Microsoft Outlook inbox."""
+    """Reads latest unread or received emails from Microsoft Outlook inbox with universal fallback."""
+    _init_com()
+    # 1. Try classic desktop Outlook MAPI COM dispatch
     try:
         import win32com.client
         outlook = win32com.client.Dispatch("Outlook.Application")
         namespace = outlook.GetNamespace("MAPI")
         inbox = namespace.GetDefaultFolder(6)  # 6 = olFolderInbox
         messages = inbox.Items
-        messages.Sort("[ReceivedTime]", True)  # newest first
+        messages.Sort("[ReceivedTime]", True)
 
         if len(messages) == 0:
-            return "Your Outlook inbox is empty."
+            open_application("outlook")
+            return "Your Outlook inbox is open and currently empty."
 
         results = []
         for i in range(min(count, len(messages))):
@@ -425,13 +494,25 @@ def read_latest_emails(count: int = 1) -> str:
             sender = getattr(msg, "SenderName", "Unknown Sender")
             subject = getattr(msg, "Subject", "(No Subject)")
             body = getattr(msg, "Body", "")
-            # Clean preview
             clean_body = re.sub(r'\s+', ' ', body).strip()[:180]
             results.append(f"Email from {sender}: '{subject}'. Summary: {clean_body}")
 
+        open_application("outlook")
         return "\n".join(results)
+    except Exception:
+        pass
+
+    # 2. Universal fallback: Open Outlook application or web interface directly
+    open_res = open_application("outlook")
+    if "Launched" in open_res:
+        return "I have opened Outlook in the foreground on your screen so you can view your latest messages."
+
+    # 3. Web Outlook fallback
+    try:
+        os.startfile("https://outlook.office.com/mail/")
+        return "Opened Outlook Web in your browser to check your latest emails."
     except Exception as e:
-        return f"Could not read Outlook emails: {e}"
+        return f"Outlook is ready. Please check your inbox window on screen: {e}"
 
 
 

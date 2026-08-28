@@ -746,11 +746,9 @@ function renderToolExecution(t) {
 
   if (videoId) {
     extraHtml = `
-      <div style="margin-top:8px;border-radius:12px;overflow:hidden;border:1px solid rgba(51,255,240,.4);box-shadow:0 4px 20px rgba(0,0,0,.6);">
-        <iframe width="100%" height="210" src="https://www.youtube.com/embed/${videoId}?autoplay=1" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-      </div>
-      <div style="margin-top:6px;display:flex;gap:8px;">
-        <a href="${targetUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(51,255,240,.15);border:1px solid rgba(51,255,240,.4);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;">▶ Open in Full Tab</a>
+      <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+        <a href="${targetUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(51,255,240,.15);border:1px solid rgba(51,255,240,.4);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;">▶ Open in YouTube</a>
+        <span style="font-size:11px;color:rgba(51,255,240,.8);font-family:var(--font-mono);">🎵 Playing in active browser window</span>
       </div>
     `;
   } else if (targetUrl) {
@@ -843,11 +841,10 @@ const WAKE_WORDS = [
   "paru", "paro", "peru", "pyro", "baru", "taru"
 ];
 
-function isWakeWordOrCommand(rawText) {
+// STRICT WAKE WORD FILTER: In hands-free mode, ONLY wake if an actual wake word is heard
+function isStrictWakeWord(rawText) {
   const t = rawText.toLowerCase().trim();
-  const hasWake = WAKE_WORDS.some(w => t.includes(w));
-  const hasDirectCommand = /open|play|song|music|youtube|volume|voice|sound|mute|lock|wifi|battery|brightness|shutdown|restart|outlook|teams|spotify|downloads|documents|screenshot|search|google|status/i.test(t);
-  return hasWake || hasDirectCommand;
+  return WAKE_WORDS.some(w => t.includes(w));
 }
 
 function extractCommand(rawText) {
@@ -884,7 +881,7 @@ function initWebSpeech(){
 
   recognition.onstart = () => {
     isRecognizing = true;
-    console.log("[PARU Voice] Speech recognition active. Listening for 'Hey Paru'...");
+    console.log("[PARU Voice] Speech recognition active. Strict wake word 'Hey Paru' enabled.");
   };
 
   recognition.onresult = (event) => {
@@ -897,7 +894,8 @@ function initWebSpeech(){
       return;
     }
 
-    if (transcript && isWakeWordOrCommand(transcript)) {
+    // STRICT GATING: Only wake when the user actually says "Hey Paru" or "Paru"
+    if (transcript && isStrictWakeWord(transcript)) {
       lastCommandTime = now;
       lastHeardTranscript = transcript;
       playWakeChime();
@@ -911,7 +909,7 @@ function initWebSpeech(){
           const replies = [
             "Yes Suresh, I am listening! How can I assist you?",
             "Standing by, Suresh. What command would you like me to run?",
-            "I'm here! Ready for your command."
+            "I'm here, Suresh! Ready for your command."
           ];
           const reply = replies[Math.floor(Math.random() * replies.length)];
           addMsg('ai', reply);
