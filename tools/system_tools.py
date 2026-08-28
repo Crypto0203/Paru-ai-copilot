@@ -6,6 +6,7 @@ Wi-Fi info, folder navigation, and generic command execution.
 
 import os
 import re
+import time
 import ctypes
 import subprocess
 import datetime
