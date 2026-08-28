@@ -744,19 +744,18 @@ function renderToolExecution(t) {
     targetUrl = t.result;
   }
 
-  if (videoId) {
+  if (videoId || targetUrl) {
+    const finalUrl = targetUrl || `https://www.youtube.com/watch?v=${videoId}`;
     extraHtml = `
       <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
-        <a href="${targetUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(51,255,240,.15);border:1px solid rgba(51,255,240,.4);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;">▶ Open in YouTube</a>
-        <span style="font-size:11px;color:rgba(51,255,240,.8);font-family:var(--font-mono);">🎵 Playing in active browser window</span>
+        <a href="${finalUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(51,255,240,.2);border:1px solid rgba(51,255,240,.6);color:var(--cyan);font-family:var(--font-mono);font-size:12px;padding:8px 14px;border-radius:8px;text-decoration:none;font-weight:700;box-shadow:0 0 12px rgba(51,255,240,.3);">▶ Open in Browser Now</a>
+        <span style="font-size:11px;color:rgba(51,255,240,.9);font-family:var(--font-mono);">🎵 Opened in active window</span>
       </div>
     `;
-  } else if (targetUrl) {
-    extraHtml = `
-      <div style="margin-top:6px;">
-        <a href="${targetUrl}" target="_blank" style="display:inline-flex;align-items:center;gap:6px;background:rgba(51,255,240,.15);border:1px solid rgba(51,255,240,.4);color:var(--cyan);font-family:var(--font-mono);font-size:11px;padding:6px 12px;border-radius:6px;text-decoration:none;font-weight:600;">🔗 Open Link</a>
-      </div>
-    `;
+    // Also trigger direct browser window open
+    try {
+      window.open(finalUrl, '_blank');
+    } catch(e){}
   }
 
   const resultStr = typeof t.result === 'object' ? (t.result.message || JSON.stringify(t.result)) : t.result;
@@ -837,14 +836,15 @@ function playWakeChime() {
 
 const WAKE_WORDS = [
   "hey paru", "hi paru", "ok paru", "okay paru", "hello paru",
-  "hey peru", "hey pyro", "hey pard", "hey par",
-  "paru", "paro", "peru", "pyro", "baru", "taru"
+  "hey peru", "hey pyro", "hey pard", "hey par", "hey paro",
+  "paru", "paro", "peru", "pyro", "baru", "taru", "palu", "paroo", "peroo"
 ];
 
-// STRICT WAKE WORD FILTER: In hands-free mode, ONLY wake if an actual wake word is heard
-function isStrictWakeWord(rawText) {
+function isWakeWordOrCommand(rawText) {
   const t = rawText.toLowerCase().trim();
-  return WAKE_WORDS.some(w => t.includes(w));
+  const hasWake = WAKE_WORDS.some(w => t.includes(w));
+  const hasDirectCommand = /open|play|song|music|youtube|volume|voice|sound|mute|unmute|lock|wifi|battery|brightness|shutdown|restart|outlook|email|mail|teams|spotify|downloads|documents|screenshot|search|google|status|who are you|hello|hi/i.test(t);
+  return hasWake || hasDirectCommand;
 }
 
 function extractCommand(rawText) {
@@ -867,6 +867,15 @@ function extractCommand(rawText) {
   return clean;
 }
 
+function showLiveSpeechFeedback(text, isFinal) {
+  const stateBadge = document.getElementById("hudState");
+  if (stateBadge) {
+    stateBadge.innerHTML = isFinal 
+      ? `● Processing: "${text.slice(0, 30)}..."`
+      : `🎙️ Heard: "${text.slice(0, 30)}..."`;
+  }
+}
+
 function initWebSpeech(){
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SpeechRecognition) {
@@ -876,28 +885,43 @@ function initWebSpeech(){
   
   recognition = new SpeechRecognition();
   recognition.continuous = true;
-  recognition.interimResults = false;
+  recognition.interimResults = true;
   recognition.lang = 'en-US';
 
   recognition.onstart = () => {
     isRecognizing = true;
-    console.log("[PARU Voice] Speech recognition active. Strict wake word 'Hey Paru' enabled.");
+    console.log("[PARU Voice] Speech recognition active. Ready for all commands & 'Hey Paru'.");
   };
 
   recognition.onresult = (event) => {
-    const lastResultIndex = event.results.length - 1;
-    const transcript = event.results[lastResultIndex][0].transcript.trim();
-    const now = Date.now();
+    let interimTranscript = "";
+    let finalTranscript = "";
 
-    // Debounce: ignore repeated triggers within 2.5s
-    if (now - lastCommandTime < 2500 && transcript.toLowerCase() === lastHeardTranscript.toLowerCase()) {
+    for (let i = event.resultIndex; i < event.results.length; ++i) {
+      if (event.results[i].isFinal) {
+        finalTranscript += event.results[i][0].transcript;
+      } else {
+        interimTranscript += event.results[i][0].transcript;
+      }
+    }
+
+    if (interimTranscript) {
+      showLiveSpeechFeedback(interimTranscript.trim(), false);
+    }
+
+    const transcript = (finalTranscript || interimTranscript).trim();
+    if (!finalTranscript) return; // Only execute on complete spoken sentence
+
+    const now = Date.now();
+    // Debounce: ignore repeated identical triggers within 2s
+    if (now - lastCommandTime < 2000 && transcript.toLowerCase() === lastHeardTranscript.toLowerCase()) {
       return;
     }
 
-    // STRICT GATING: Only wake when the user actually says "Hey Paru" or "Paru"
-    if (transcript && isStrictWakeWord(transcript)) {
+    if (transcript && isWakeWordOrCommand(transcript)) {
       lastCommandTime = now;
       lastHeardTranscript = transcript;
+      showLiveSpeechFeedback(transcript, true);
       playWakeChime();
       const command = extractCommand(transcript);
       if (command === "hey paru wake up") {
