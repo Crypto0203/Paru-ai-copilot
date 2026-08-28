@@ -1,0 +1,15 @@
+server.py
+main.py
+paru_launcher.py
+paru_terminal.py
+paru_voice.py
+start_paru_gui.py
+requirements.txt
+tools/
+core/
+data/
+dist/
+build/
+*.py
+*.bat
+*.vbs

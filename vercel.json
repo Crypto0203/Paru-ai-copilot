@@ -1,14 +1,19 @@
 {
-  "outputDirectory": "ui",
-  "cleanUrls": true,
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/",
-      "destination": "/index.html"
+      "src": "ui/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/remote",
+      "dest": "/ui/remote.html"
     },
     {
-      "source": "/remote",
-      "destination": "/remote.html"
+      "src": "/(.*)",
+      "dest": "/ui/$1"
     }
   ]
 }
