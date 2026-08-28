@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "public": true,
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/ui/index.html"
+    },
+    {
+      "source": "/remote",
+      "destination": "/ui/remote.html"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/ui/$1"
+    }
+  ]
+}

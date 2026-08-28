@@ -1,0 +1,33 @@
+{
+  "user_name": "Suresh",
+  "preferences": {
+    "theme": "dark",
+    "voice": "en-IN-NeerjaNeural",
+    "personality": "warm, friendly, witty, human-like",
+    "language": "English with some Telugu warmth"
+  },
+  "facts": [
+    {
+      "fact": "User is building a pro-level AI voice assistant",
+      "timestamp": "2026-08-27 16:43:32"
+    },
+    {
+      "fact": "User name is Suresh. He works in a professional environment and uses Microsoft Teams and Outlook daily.",
+      "timestamp": "2026-08-28"
+    },
+    {
+      "fact": "Suresh likes Telugu songs and trending music on YouTube.",
+      "timestamp": "2026-08-28"
+    },
+    {
+      "fact": "Suresh uses Windows 11 with Jabra Evolve2 30 SE microphone.",
+      "timestamp": "2026-08-28"
+    },
+    {
+      "fact": "Suresh prefers responses that are short, warm, and human. Not robotic.",
+      "timestamp": "2026-08-28"
+    }
+  ],
+  "reminders": [],
+  "recent_history": []
+}

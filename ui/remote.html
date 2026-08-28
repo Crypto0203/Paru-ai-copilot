@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>PARU | Mobile Live Remote</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #07090e;
+      --card-bg: rgba(16, 22, 36, 0.92);
+      --accent-cyan: #00f2fe;
+      --accent-purple: #7928ca;
+      --accent-green: #00f076;
+      --text: #f0f4fc;
+      --text-muted: #8b9bb4;
+      --border: rgba(0, 242, 254, 0.18);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      padding: 12px;
+      padding-bottom: 80px;
+    }
+
+    .remote-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: 0.5px;
+      color: var(--accent-cyan);
+    }
+
+    .telemetry {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--accent-green);
+    }
+
+    .screen-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 4px 20px rgba(0, 242, 254, 0.08);
+    }
+
+    .screen-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: rgba(0, 0, 0, 0.4);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .screen-container {
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .screen-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .btn-refresh {
+      background: rgba(0, 242, 254, 0.15);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      border-radius: 6px;
+      padding: 4px 8px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .action-btn {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.96);
+      border-color: var(--accent-cyan);
+      background: rgba(0, 242, 254, 0.12);
+    }
+
+    .status-toast {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .command-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 12px;
+      background: rgba(7, 9, 14, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+
+    .cmd-input {
+      flex: 1;
+      background: rgba(16, 22, 36, 0.95);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      color: #fff;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      padding: 0 16px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="remote-header">
+    <div class="brand">🛡️ PARU REMOTE</div>
+    <div class="telemetry" id="phoneTelem">⚡ Connecting...</div>
+  </header>
+
+  <div class="screen-card">
+    <div class="screen-header">
+      <span>🔴 LIVE LAPTOP SCREEN</span>
+      <button class="btn-refresh" id="btnRefreshScreen">🔄 Refresh Screen</button>
+    </div>
+    <div class="screen-container">
+      <img id="liveScreenImg" class="screen-img" src="/api/screen_frame" alt="Laptop Screen">
+    </div>
+  </div>
+
+  <div class="status-toast" id="statusToast"></div>
+
+  <h4 style="font-size:12px; color:var(--text-muted); text-transform:uppercase; margin-bottom:8px; letter-spacing:0.5px;">Quick Actions</h4>
+  <div class="quick-actions">
+    <button class="action-btn" onclick="sendRemoteCmd('open youtube and play latest trending songs')">🎵 Trending Songs</button>
+    <button class="action-btn" onclick="sendRemoteCmd('open facebook')">🌐 Open Facebook</button>
+    <button class="action-btn" onclick="sendRemoteCmd('take a screenshot')">📸 Snapshot Screen</button>
+    <button class="action-btn" onclick="sendRemoteCmd('speak in telugu')">🗣️ Telugu Mode</button>
+    <button class="action-btn" onclick="sendRemoteCmd('set system volume to 50 percent')">🔊 Volume 50%</button>
+    <button class="action-btn" onclick="sendRemoteCmd('lock my computer')">🔒 Lock PC</button>
+  </div>
+
+  <form class="command-bar" id="remoteForm" onsubmit="handleSend(event)">
+    <input type="text" class="cmd-input" id="remoteInput" placeholder="Speak/Type command to laptop...">
+    <button type="submit" class="btn-send">Send</button>
+  </form>
+
+  <script>
+    function refreshScreen() {
+      const img = document.getElementById("liveScreenImg");
+      img.src = "/api/screen_frame?t=" + Date.now();
+    }
+
+    document.getElementById("btnRefreshScreen").addEventListener("click", refreshScreen);
+    setInterval(refreshScreen, 3000); // Auto-refresh frame every 3s
+
+    async function sendRemoteCmd(query) {
+      if (!query) return;
+      showToast("Sending: " + query + "...", "#00f2fe");
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: query, enable_tts: true })
+        });
+        const data = await res.json();
+        showToast("PARU: " + (data.response || "Done!"), "#00f076");
+        setTimeout(refreshScreen, 1000);
+      } catch (err) {
+        showToast("Error: " + err.message, "#ff4b4b");
+      }
+    }
+
+    function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById("remoteInput");
+      const val = input.value.trim();
+      if (val) {
+        sendRemoteCmd(val);
+        input.value = "";
+      }
+    }
+
+    function showToast(msg, color) {
+      const toast = document.getElementById("statusToast");
+      toast.style.display = "block";
+      toast.style.background = "rgba(0,0,0,0.6)";
+      toast.style.border = "1px solid " + color;
+      toast.style.color = color;
+      toast.textContent = msg;
+    }
+
+    async function checkTelem() {
+      try {
+        const res = await fetch("/api/status");
+        const data = await res.json();
+        if (data.system) {
+          document.getElementById("phoneTelem").textContent = `⚡ ${data.system.battery} | 💻 CPU ${data.system.cpu_usage}`;
+        }
+      } catch (e) {}
+    }
+    setInterval(checkTelem, 5000);
+    checkTelem();
+  </script>
+</body>
+</html>
